@@ -1,0 +1,8 @@
+<div class="name-editor">
+  <label for="name">Name: </label>
+  <input id="name" type="text" [formControl]="name">
+
+  <p>Value: {{ name.value }}</p>
+  
+  <button type="button" (click)="name.setValue('John Doe')">Reset</button>
+</div>
