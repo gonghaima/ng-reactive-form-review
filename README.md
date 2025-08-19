@@ -1,59 +1,99 @@
-# NgReactiveFormReview
+import { Model, Document, FilterQuery, UpdateQuery } from 'mongoose';
+import { EntityRepository } from './entity-repository';
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.0.0.
+// Create a fake entity type
+interface TestEntity extends Document {
+  name: string;
+}
 
-## Development server
+// Concrete repo for testing
+class TestRepository extends EntityRepository<TestEntity> {}
 
-To start a local development server, run:
+describe('EntityRepository', () => {
+  let repository: TestRepository;
+  let mockModel: jasmine.SpyObj<Model<TestEntity>>;
 
-```bash
-ng serve
-```
+  beforeEach(() => {
+    mockModel = jasmine.createSpyObj<Model<TestEntity>>('Model', [
+      'findOne',
+      'find',
+      'findOneAndUpdate',
+      'deleteMany',
+    ]);
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+    // Special handling for save() since it's on the entity instance, not the model
+    (mockModel as any).prototype.save = jasmine.createSpy('save');
 
-## Code scaffolding
+    repository = new TestRepository(mockModel);
+  });
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+  it('should call findOne with the correct query', async () => {
+    const fakeResult = { name: 'Alice' } as TestEntity;
+    mockModel.findOne.and.returnValue({
+      exec: () => Promise.resolve(fakeResult),
+    } as any);
 
-```bash
-ng generate component component-name
-```
+    const result = await repository.findOne({ name: 'Alice' } as FilterQuery<TestEntity>);
+    expect(mockModel.findOne).toHaveBeenCalledWith(
+      { name: 'Alice' },
+      jasmine.any(Object)
+    );
+    expect(result).toEqual(fakeResult);
+  });
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+  it('should call find with the correct query', async () => {
+    const fakeResults = [{ name: 'Bob' }] as TestEntity[];
+    mockModel.find.and.returnValue({
+      exec: () => Promise.resolve(fakeResults),
+    } as any);
 
-```bash
-ng generate --help
-```
+    const result = await repository.find({ name: 'Bob' } as FilterQuery<TestEntity>);
+    expect(mockModel.find).toHaveBeenCalledWith({ name: 'Bob' });
+    expect(result).toEqual(fakeResults);
+  });
 
-## Building
+  it('should create and save an entity', async () => {
+    const saveSpy = jasmine.createSpy().and.resolveTo({ name: 'Charlie' } as TestEntity);
+    const fakeEntity = { save: saveSpy };
 
-To build the project run:
+    spyOn(mockModel as any, 'constructor').and.returnValue(fakeEntity);
 
-```bash
-ng build
-```
+    const result = await repository.create({ name: 'Charlie' });
+    expect(saveSpy).toHaveBeenCalled();
+    expect(result).toEqual({ name: 'Charlie' } as TestEntity);
+  });
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+  it('should call findOneAndUpdate with correct params', async () => {
+    const fakeUpdated = { name: 'Delta' } as TestEntity;
+    mockModel.findOneAndUpdate.and.returnValue({
+      exec: () => Promise.resolve(fakeUpdated),
+    } as any);
 
-## Running unit tests
+    const result = await repository.findOneAndUpdate(
+      { name: 'Delta' } as FilterQuery<TestEntity>,
+      { $set: { name: 'Delta' } } as UpdateQuery<unknown>
+    );
 
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+    expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { name: 'Delta' },
+      { $set: { name: 'Delta' } },
+      jasmine.objectContaining({ new: true })
+    );
+    expect(result).toEqual(fakeUpdated);
+  });
 
-```bash
-ng test
-```
+  it('should return true if deleteMany deleted at least one doc', async () => {
+    mockModel.deleteMany.and.resolveTo({ deletedCount: 2 } as any);
 
-## Running end-to-end tests
+    const result = await repository.deleteMany({ name: 'Eve' } as FilterQuery<TestEntity>);
+    expect(mockModel.deleteMany).toHaveBeenCalledWith({ name: 'Eve' });
+    expect(result).toBeTrue();
+  });
 
-For end-to-end (e2e) testing, run:
+  it('should return false if deleteMany deleted none', async () => {
+    mockModel.deleteMany.and.resolveTo({ deletedCount: 0 } as any);
 
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+    const result = await repository.deleteMany({ name: 'Eve' } as FilterQuery<TestEntity>);
+    expect(result).toBeFalse();
+  });
+});
