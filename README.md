@@ -1,99 +1,97 @@
 Testing for mongoose util
 ```javascript
-import { Model, Document, FilterQuery, UpdateQuery } from 'mongoose';
-import { EntityRepository } from './entity-repository';
+import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
+import { MakeAPaymentBffService } from './make-a-payment-bff.service';
+import { RestService } from '@childsupport/core'; // Assuming RestService is from this path
+import { ErrorsEnum } from '@dhs/child-support-shared/dist/shared-swagger';
 
-// Fake entity type
-interface TestEntity extends Document {
-  name: string;
-}
+// Mock the RestService
+const mockRestService = {
+  callPost: jest.fn(),
+};
 
-// Concrete repo for testing
-class TestRepository extends EntityRepository<TestEntity> {}
+describe('MakeAPaymentBffService', () => {
+  let service: MakeAPaymentBffService;
+  let restService: RestService;
 
-describe('EntityRepository (Jest)', () => {
-  let repository: TestRepository;
-  let mockModel: jest.Mocked<Model<TestEntity>>;
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        MakeAPaymentBffService,
+        {
+          provide: RestService,
+          useValue: mockRestService,
+        },
+      ],
+    }).compile();
 
-  beforeEach(() => {
-    mockModel = {
-      findOne: jest.fn(),
-      find: jest.fn(),
-      findOneAndUpdate: jest.fn(),
-      deleteMany: jest.fn(),
-    } as any;
-
-    repository = new TestRepository(mockModel);
+    service = module.get<MakeAPaymentBffService>(MakeAPaymentBffService);
+    restService = module.get<RestService>(RestService);
   });
 
-  it('should call findOne with correct query', async () => {
-    const fakeResult = { name: 'Alice' } as TestEntity;
-    (mockModel.findOne as jest.Mock).mockReturnValue({
-      exec: () => Promise.resolve(fakeResult),
+  // Test to ensure the service is defined
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  describe('submitPayment', () => {
+    it('should successfully submit a payment and return the result', async () => {
+      const mockResponse = {
+        transactionId: '12345',
+        status: 'SUCCESS',
+      };
+
+      // Mock the successful response from the RestService's callPost method
+      mockRestService.callPost.mockResolvedValue(mockResponse);
+
+      const csrn = 'testCsrn';
+      const tokenId = 'testToken';
+      const amount = 100.00;
+
+      const result = await service.submitPayment(csrn, tokenId, amount);
+
+      // Verify that the mocked callPost method was called
+      expect(mockRestService.callPost).toHaveBeenCalled();
+      // Verify the returned result matches the mock response
+      expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('callFinancialService', () => {
+    it('should return a successful response from the API call', async () => {
+      const mockResponse = {
+        transactionId: '12345',
+        status: 'SUCCESS',
+      };
+      // Mock a successful API call
+      mockRestService.callPost.mockResolvedValue(mockResponse);
+
+      const body = { csrn: 'test' };
+      const url = 'http://test.com/api';
+
+      const result = await service.callFinancialService(body, url);
+
+      expect(mockRestService.callPost).toHaveBeenCalledWith(url, body);
+      expect(result).toEqual(mockResponse);
     });
 
-    const result = await repository.findOne({ name: 'Alice' } as FilterQuery<TestEntity>);
-    expect(mockModel.findOne).toHaveBeenCalledWith(
-      { name: 'Alice' },
-      expect.any(Object)
-    );
-    expect(result).toEqual(fakeResult);
-  });
+    it('should throw a BadRequestException on API call failure', async () => {
+      // Mock a failed API call (e.g., a network error or HTTP error)
+      mockRestService.callPost.mockRejectedValue(new Error('API error'));
 
-  it('should call find with correct query', async () => {
-    const fakeResults = [{ name: 'Bob' }] as TestEntity[];
-    (mockModel.find as jest.Mock).mockReturnValue({
-      exec: () => Promise.resolve(fakeResults),
+      const body = { csrn: 'test' };
+      const url = 'http://test.com/api';
+
+      // Expect the service to throw a BadRequestException
+      await expect(service.callFinancialService(body, url)).rejects.toThrow(
+        BadRequestException,
+      );
+      // Ensure the error message matches what's expected from the service's logic
+      await expect(service.callFinancialService(body, url)).rejects.toThrow(
+        ErrorsEnum.GENERIC_ERROR.getKey,
+      );
     });
-
-    const result = await repository.find({ name: 'Bob' } as FilterQuery<TestEntity>);
-    expect(mockModel.find).toHaveBeenCalledWith({ name: 'Bob' });
-    expect(result).toEqual(fakeResults);
-  });
-
-  it('should create and save an entity', async () => {
-    const saveMock = jest.fn().mockResolvedValue({ name: 'Charlie' } as TestEntity);
-
-    // Mock `new this.entityModel()`
-    (mockModel as any).constructor = jest.fn().mockReturnValue({ save: saveMock });
-
-    const result = await repository.create({ name: 'Charlie' });
-    expect(saveMock).toHaveBeenCalled();
-    expect(result).toEqual({ name: 'Charlie' } as TestEntity);
-  });
-
-  it('should call findOneAndUpdate with correct params', async () => {
-    const fakeUpdated = { name: 'Delta' } as TestEntity;
-    (mockModel.findOneAndUpdate as jest.Mock).mockReturnValue({
-      exec: () => Promise.resolve(fakeUpdated),
-    });
-
-    const result = await repository.findOneAndUpdate(
-      { name: 'Delta' } as FilterQuery<TestEntity>,
-      { $set: { name: 'Delta' } } as UpdateQuery<unknown>
-    );
-
-    expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
-      { name: 'Delta' },
-      { $set: { name: 'Delta' } },
-      expect.objectContaining({ new: true })
-    );
-    expect(result).toEqual(fakeUpdated);
-  });
-
-  it('should return true if deleteMany deleted at least one doc', async () => {
-    (mockModel.deleteMany as jest.Mock).mockResolvedValue({ deletedCount: 2 });
-
-    const result = await repository.deleteMany({ name: 'Eve' } as FilterQuery<TestEntity>);
-    expect(mockModel.deleteMany).toHaveBeenCalledWith({ name: 'Eve' });
-    expect(result).toBe(true);
-  });
-
-  it('should return false if deleteMany deleted none', async () => {
-    (mockModel.deleteMany as jest.Mock).mockResolvedValue({ deletedCount: 0 });
-
-    const result = await repository.deleteMany({ name: 'Eve' } as FilterQuery<TestEntity>);
-    expect(result).toBe(false);
   });
 });
 
