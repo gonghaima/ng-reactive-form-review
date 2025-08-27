@@ -1,98 +1,249 @@
-Testing for mongoose util
-```javascript
-import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
-import { MakeAPaymentBffService } from './make-a-payment-bff.service';
-import { RestService } from '@childsupport/core'; // Assuming RestService is from this path
-import { ErrorsEnum } from '@dhs/child-support-shared/dist/shared-swagger';
+calculation surcharge
 
-// Mock the RestService
-const mockRestService = {
-  callPost: jest.fn(),
-};
+```
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Observable, firstValueFrom } from 'rxjs';
 
-describe('MakeAPaymentBffService', () => {
-  let service: MakeAPaymentBffService;
-  let restService: RestService;
+@Injectable({providedIn: 'root'})
+export class CardDetailsService {
+    merchantId = 'zzzazdjkjsdlf';
+    anzClientId = 'dafsadsfdsaf';
+    apcClientId = 'kjkadfaf223fdssafs';
+    
+    // ANZ Worldline configuration
+    private readonly anzBaseUrl = 'https://payment.preprod.anzworldline-solutions.com.au/v2';
+    private readonly hardcodedBin = '513700'; // As specified in requirements
+    
+    constructor(private http: HttpClient) {}
+    
+    async createPayment(postPaymentBody: any): Promise<any> {
+        // Your existing implementation
+        // ...
+    }
+    
+    /**
+     * Get IIN details from ANZ Worldline API
+     * @param paymentContext Payment context information
+     * @param bin Bank Identification Number (defaults to hardcoded value)
+     * @returns Promise with IIN details response
+     */
+    async getIINDetails(paymentContext: {
+        amount: number;
+        currencyCode?: string;
+        countryCode?: string;
+        isRecurring?: boolean;
+    }, bin: string = this.hardcodedBin): Promise<any> {
+        const url = `${this.anzBaseUrl}/${this.merchantId}/services/getIINdetails`;
+        
+        // Default payment context values
+        const defaultPaymentContext = {
+            amount: 1000,
+            currencyCode: 'AUD',
+            countryCode: 'AU',
+            isRecurring: false
+        };
+        
+        // Merge provided context with defaults
+        const finalPaymentContext = {
+            ...defaultPaymentContext,
+            ...paymentContext
+        };
+        
+        const requestBody = {
+            bin: bin,
+            paymentContext: {
+                amountOfMoney: {
+                    amount: finalPaymentContext.amount,
+                    currencyCode: finalPaymentContext.currencyCode
+                },
+                countryCode: finalPaymentContext.countryCode,
+                isRecurring: finalPaymentContext.isRecurring
+            }
+        };
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        MakeAPaymentBffService,
-        {
-          provide: RestService,
-          useValue: mockRestService,
-        },
-      ],
-    }).compile();
+        const headers = new HttpHeaders({
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.anzClientId}`,
+            'Accept': 'application/json'
+        });
 
-    service = module.get<MakeAPaymentBffService>(MakeAPaymentBffService);
-    restService = module.get<RestService>(RestService);
-  });
+        try {
+            const response = await firstValueFrom(
+                this.http.post(url, requestBody, { headers })
+            );
+            
+            console.log('IIN Details Response:', response);
+            
+            // Log key information from the response
+            if ((response as any).paymentProductId) {
+                const data = response as any;
+                console.log(`Card detected: ${data.cardScheme} ${data.cardType} (Product ID: ${data.paymentProductId})`);
+                console.log(`Issuer: ${data.issuerName} (${data.issuingCountryCode})`);
+                console.log(`Allowed in context: ${data.isAllowedInContext}`);
+            }
+            
+            return response;
+        } catch (error) {
+            console.error('Error fetching IIN details:', error);
+            throw error;
+        }
+    }
 
-  // Test to ensure the service is defined
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
+    /**
+     * Calculate surcharge using ANZ Worldline API
+     * @param surchargeParams Parameters for surcharge calculation
+     * @param iinDetails Optional IIN details from previous API call
+     * @returns Promise with surcharge calculation response
+     */
+    async calculateSurcharge(surchargeParams: {
+        amount: number;
+        currency?: string;
+        countryCode?: string;
+        isRecurring?: boolean;
+        paymentProductId?: number;
+        cardSource?: {
+            card?: {
+                cardNumber: string;
+                paymentProductId: number;
+            };
+            token?: string;
+            hostedTokenizationId?: string;
+            encryptedCustomerInput?: string;
+        };
+    }, iinDetails?: any): Promise<any> {
+        const url = `${this.anzBaseUrl}/${this.merchantId}/services/surchargecalculation`;
+        
+        // If IIN details not provided, fetch them first
+        if (!iinDetails) {
+            const paymentContext = {
+                amount: surchargeParams.amount,
+                currencyCode: surchargeParams.currency || 'AUD',
+                countryCode: surchargeParams.countryCode || 'AU',
+                isRecurring: surchargeParams.isRecurring || false
+            };
+            iinDetails = await this.getIINDetails(paymentContext);
+        }
 
-  describe('submitPayment', () => {
-    it('should successfully submit a payment and return the result', async () => {
-      const mockResponse = {
-        transactionId: '12345',
-        status: 'SUCCESS',
-      };
+        // Build card source - use provided cardSource or create default with hardcoded BIN
+        let cardSource = surchargeParams.cardSource;
+        
+        if (!cardSource) {
+            // Default card source using hardcoded BIN
+            // Use paymentProductId from IIN details if available, otherwise default to 840
+            const paymentProductId = (iinDetails && iinDetails.paymentProductId) 
+                ? iinDetails.paymentProductId 
+                : (surchargeParams.paymentProductId || 840);
+                
+            cardSource = {
+                card: {
+                    cardNumber: this.hardcodedBin + "000000000", // Pad to make it look like a card number (16 digits)
+                    paymentProductId: paymentProductId
+                }
+            };
+            
+            console.log(`Using default card source with BIN ${this.hardcodedBin} and payment product ID ${paymentProductId}`);
+        }
 
-      // Mock the successful response from the RestService's callPost method
-      mockRestService.callPost.mockResolvedValue(mockResponse);
+        const requestBody = {
+            cardSource: cardSource,
+            amountOfMoney: {
+                amount: surchargeParams.amount,
+                currencyCode: surchargeParams.currency || 'AUD'
+            }
+        };
 
-      const csrn = 'testCsrn';
-      const tokenId = 'testToken';
-      const amount = 100.00;
+        const headers = new HttpHeaders({
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.anzClientId}`,
+            'Accept': 'application/json'
+        });
 
-      const result = await service.submitPayment(csrn, tokenId, amount);
+        try {
+            const response = await firstValueFrom(
+                this.http.post(url, requestBody, { headers })
+            );
+            
+            console.log('Surcharge Calculation Response:', response);
+            return response;
+        } catch (error) {
+            console.error('Error calculating surcharge:', error);
+            throw error;
+        }
+    }
 
-      // Verify that the mocked callPost method was called
-      expect(mockRestService.callPost).toHaveBeenCalled();
-      // Verify the returned result matches the mock response
-      expect(result).toEqual(mockResponse);
-    });
-  });
-
-  describe('callFinancialService', () => {
-    it('should return a successful response from the API call', async () => {
-      const mockResponse = {
-        transactionId: '12345',
-        status: 'SUCCESS',
-      };
-      // Mock a successful API call
-      mockRestService.callPost.mockResolvedValue(mockResponse);
-
-      const body = { csrn: 'test' };
-      const url = 'http://test.com/api';
-
-      const result = await service.callFinancialService(body, url);
-
-      expect(mockRestService.callPost).toHaveBeenCalledWith(url, body);
-      expect(result).toEqual(mockResponse);
-    });
-
-    it('should throw a BadRequestException on API call failure', async () => {
-      // Mock a failed API call (e.g., a network error or HTTP error)
-      mockRestService.callPost.mockRejectedValue(new Error('API error'));
-
-      const body = { csrn: 'test' };
-      const url = 'http://test.com/api';
-
-      // Expect the service to throw a BadRequestException
-      await expect(service.callFinancialService(body, url)).rejects.toThrow(
-        BadRequestException,
-      );
-      // Ensure the error message matches what's expected from the service's logic
-      await expect(service.callFinancialService(body, url)).rejects.toThrow(
-        ErrorsEnum.GENERIC_ERROR.getKey,
-      );
-    });
-  });
-});
-
+    /**
+     * Complete surcharge calculation workflow
+     * Fetches IIN details first, then calculates surcharge
+     * @param surchargeParams Parameters for surcharge calculation
+     * @returns Promise with complete workflow result
+     */
+    async completeSurchargeCalculation(surchargeParams: {
+        amount: number;
+        currency?: string;
+        countryCode?: string;
+        isRecurring?: boolean;
+        paymentProductId?: number;
+        cardSource?: {
+            card?: {
+                cardNumber: string;
+                paymentProductId: number;
+            };
+            token?: string;
+            hostedTokenizationId?: string;
+            encryptedCustomerInput?: string;
+        };
+    }): Promise<{
+        success: boolean;
+        iinDetails?: any;
+        surchargeCalculation?: any;
+        error?: string;
+        validationErrors?: string[];
+        timestamp: string;
+    }> {
+        try {
+            console.log('Starting surcharge calculation workflow...');
+            
+            // Step 1: Get IIN details
+            console.log('Step 1: Fetching IIN details...');
+            const paymentContext = {
+                amount: surchargeParams.amount,
+                currencyCode: surchargeParams.currency || 'AUD',
+                countryCode: surchargeParams.countryCode || 'AU',
+                isRecurring: surchargeParams.isRecurring || false
+            };
+            const iinDetails = await this.getIINDetails(paymentContext);
+            
+            // Basic validation
+            if (!iinDetails.isAllowedInContext) {
+                console.warn('Card is not allowed in the current context');
+                return {
+                    success: false,
+                    error: 'Card is not allowed in the current context',
+                    validationErrors: ['Card not allowed in context'],
+                    iinDetails: iinDetails,
+                    timestamp: new Date().toISOString()
+                };
+            }
+            
+            // Step 2: Calculate surcharge
+            console.log('Step 2: Calculating surcharge...');
+            const surchargeResult = await this.calculateSurcharge(surchargeParams, iinDetails);
+            
+            return {
+                success: true,
+                iinDetails: iinDetails,
+                surchargeCalculation: surchargeResult,
+                timestamp: new Date().toISOString()
+            };
+        } catch (error: any) {
+            console.error('Surcharge calculation workflow failed:', error);
+            return {
+                success: false,
+                error: error.message || 'Unknown error occurred',
+                timestamp: new Date().toISOString()
+            };
+        }
+    }
+}
 ```
