@@ -1,70 +1,124 @@
-controller test
+service test
 
 ```
 import { Test, TestingModule } from '@nestjs/testing';
-import { MakeAPaymentController } from './make-a-payment.controller';
-import { MakeAPaymentService } from '../services/make-a-payment/make-a-payment.service';
-import { GlobalConstants, callCreateBody, CreatePaymentResponse } from '@childsupport/core';
-import { Request } from 'express';
+import { MakeAPaymentService } from './make-a-payment.service';
+import { RestService } from '@childsupport/common-utils';
+import { PaymentLogRepository } from '../../data/make-a-payment/repository/payment-log.repository';
+import { getModelToken } from '@nestjs/mongoose';
+import { PaymentLog } from '../../data/make-a-payment/schema/payment-log.schema';
 
-describe('MakeAPaymentController', () => {
-  let controller: MakeAPaymentController;
+describe('MakeAPaymentService', () => {
   let service: MakeAPaymentService;
-
-  const mockMakeAPaymentService = {
-    callSubmitPayment: jest.fn(),
-  };
+  let restService: jest.Mocked<RestService>;
+  let paymentLogRepository: jest.Mocked<PaymentLogRepository>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [MakeAPaymentController],
       providers: [
+        MakeAPaymentService,
         {
-          provide: MakeAPaymentService,
-          useValue: mockMakeAPaymentService,
+          provide: RestService,
+          useValue: {
+            callPost: jest.fn(),
+          },
+        },
+        {
+          provide: PaymentLogRepository,
+          useValue: {
+            create: jest.fn(),
+          },
+        },
+        {
+          provide: getModelToken(PaymentLog.name),
+          useValue: {}, // mock mongoose model
         },
       ],
     }).compile();
 
-    controller = module.get<MakeAPaymentController>(MakeAPaymentController);
     service = module.get<MakeAPaymentService>(MakeAPaymentService);
+    restService = module.get(RestService);
+    paymentLogRepository = module.get(PaymentLogRepository);
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
-  });
-
-  it('should call service.callSubmitPayment with correct params', async () => {
-    const body: callCreateBody = {
+  describe('callSubmitPayment', () => {
+    const payload = {
       csrn: '12345',
-      tokenId: 'token-abc',
-      amount: 200,
+      token_id: 'test-token',
+      amount: 1000,
+      headers: { custom: 'header' },
     };
 
-    const mockRequest = {
-      headers: { authorization: 'Bearer token' },
-    } as unknown as Request;
+    it('should submit payment successfully and log result', async () => {
+      const mockResponse = {
+        creationOutput: {},
+        payment: { id: 'payment-1' },
+        merchantAction: {},
+      };
 
-    const expectedResponse: CreatePaymentResponse = {
-      success: true,
-      paymentId: 'pay-001',
-    } as CreatePaymentResponse;
+      restService.callPost.mockResolvedValueOnce(mockResponse);
 
-    mockMakeAPaymentService.callSubmitPayment.mockResolvedValue(expectedResponse);
+      const result = await service.callSubmitPayment(payload);
 
-    const result = await controller.callCreatePayment(body, mockRequest);
+      expect(restService.callPost).toHaveBeenCalledWith(
+        expect.stringContaining('/payments'),
+        expect.any(Object),
+        expect.any(Object),
+      );
 
-    expect(service.callSubmitPayment).toHaveBeenCalledWith({
-      csrn: body.csrn,
-      token_id: body.tokenId,
-      amount: body.amount,
-      headers: mockRequest.headers,
+      expect(paymentLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          csrn: '12345',
+          token_id: 'test-token',
+          amount: 1000,
+          paymentResult: mockResponse,
+        }),
+      );
+
+      expect(result).toEqual(mockResponse);
     });
-    expect(result).toEqual(expectedResponse);
+
+    it('should log error and rethrow when payment submission fails', async () => {
+      const mockError = new Error('Payment failed');
+      restService.callPost.mockRejectedValueOnce(mockError);
+
+      await expect(service.callSubmitPayment(payload)).rejects.toThrow('Payment failed');
+
+      expect(paymentLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          csrn: '12345',
+          token_id: 'test-token',
+          amount: 1000,
+          error: mockError,
+        }),
+      );
+    });
+  });
+
+  describe('setupPostBody', () => {
+    it('should return a valid PostPaymentBodyDTO', () => {
+      const result = service.setupPostBody({
+        token_id: 'token123',
+        amount: 500,
+        csrn: 'abc123',
+      });
+
+      expect(result.hostedTokenizationId).toBe('token123');
+      expect(result.order.amountOfMoney.amount).toBe(500);
+      expect(result.customer.merchantCustomerId).toBe('abc123');
+      expect(result.cardPaymentMethodSpecificInput.threeDSecure.redirectionData.returnUrl).toContain('http');
+    });
+  });
+
+  describe('generateHeaders', () => {
+    it('should return headers with required keys', () => {
+      const headers = service.generateHeaders({ foo: 'bar' });
+
+      expect(headers.headers['Content-Type']).toBe('application/json');
+      expect(headers.headers['x-anzwl-client-id']).toBeDefined();
+      expect(headers.headers['x-sa-client-id']).toBeDefined();
+      expect(headers.headers['foo']).toBe('bar');
+    });
   });
 });
 
