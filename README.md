@@ -1,21 +1,37 @@
-get ip
+get schema
 ```
-import { Request } from 'express';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document } from 'mongoose';
 
-export function getClientIp(request: Request): string {
-  let ip =
-    request.ip ||
-    (request.headers['x-forwarded-for'] as string) ||
-    request.connection?.remoteAddress ||
-    request.socket?.remoteAddress ||
-    request.connection?.socket?.remoteAddress ||
-    'unknown';
+// Define the document type
+export type CardDocument = Card & Document;
 
-  // Handle multiple IPs in x-forwarded-for
-  if (ip && ip.includes(',')) {
-    ip = ip.split(',')[0].trim();
-  }
+@Schema({ timestamps: true }) // It's good practice to keep timestamps enabled
+export class Card {
+  // @Prop({ type: String }) is needed for basic types like string, number, etc.
 
-  return ip;
+  @Prop({
+    type: String,
+    required: true, // Assuming this is the customer ID field and should always be present
+  })
+  csrn: string;
+
+  @Prop({
+    type: String,
+    required: true,
+  })
+  token: string;
+
+  @Prop({
+    type: String,
+    // Define an array of allowed values (enum) for validation
+    enum: ['used', 'saved', 'preferred'], 
+    // Set the default value to "used"
+    default: 'used', 
+  })
+  status: string;
 }
+
+// Create the Mongoose Schema from the class
+export const CardSchema = SchemaFactory.createForClass(Card);
 ```
