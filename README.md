@@ -1,7 +1,7 @@
-tt.
+dep
 
 ```
-import { from } from 'rxjs';
+import { defer, lastValueFrom, scheduled, asyncScheduler } from 'rxjs';
 import { mergeMap, map, toArray } from 'rxjs/operators';
 
 async callGetCards({ crn }, headers): Promise<unknown> {
@@ -15,19 +15,10 @@ async callGetCards({ crn }, headers): Promise<unknown> {
       this.merchantId,
     );
 
-    const tokenURLs = cardsData.map((card) =>
-      GlobalConstants.getTokenURL(
-        this.anzWorldlineUrl,
-        this.merchantId,
-        card.token,
-      ),
-    );
-
-    // Use RxJS to fetch all token infos and combine with cardsData
-    const combinedData = await from(cardsData)
-      .pipe(
+    const combinedData = await lastValueFrom(
+      scheduled(cardsData, asyncScheduler).pipe(   // ✅ replaces from(cardsData)
         mergeMap((card) =>
-          from(
+          defer(() =>
             this.restService.callGet(
               GlobalConstants.getTokenURL(
                 this.anzWorldlineUrl,
@@ -37,15 +28,17 @@ async callGetCards({ crn }, headers): Promise<unknown> {
               paymentHeaders,
             ),
           ).pipe(
-            map((tokenInfo) => ({
-              ...card,
-              tokenInfo,
-            })),
+            map((tokenInfo) => {                   // ✅ closure only, no thisArg
+              return {
+                ...card,
+                tokenInfo,
+              };
+            }),
           ),
         ),
-        toArray(), // collect all results into a single array
-      )
-      .toPromise();
+        toArray(), // ✅ still valid
+      ),
+    );
 
     return combinedData;
   } catch (error) {
