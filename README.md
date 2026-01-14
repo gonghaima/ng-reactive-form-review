@@ -7,50 +7,42 @@ generateAndOpenReceipt() {
       return;
     }
 
-    // SVG header
-    const svgHeaderData = `<svg width="1240" height="68" viewBox="0 0 1240 68" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="1240" height="68" fill="black"/>
-<path d="M132.704 47.9999L134.291 40.4799H134.39C134.547 40.9368 134.821 41.3451 135.184 41.3451 135.184 41.6643C135.53 41.9514 135.895 42.2158 136.275 42.45"/>
-</svg>`;
-
-    // SVG footer
-    const svgFooterData = `<svg width="1240" height="68" viewBox="0 0 1240 68" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="1240" height="68" fill="black"/>
-<text x="620" y="40" text-anchor="middle" fill="white" font-size="24">Thank you for your payment</text>
+    // Combined SVG with header and footer
+    const svgCombinedData = `<svg width="1240" height="297" viewBox="0 0 1240 297" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1240" height="68" y="0" fill="black"/>
+  <path d="M132.704 47.9999L134.291 40.4799H134.39C134.547 40.9368 134.821 41.3451 135.184 41.3451 135.184 41.6643C135.53 41.9514 135.895 42.2158 136.275 42.45"/>
+  <rect width="1240" height="68" y="229" fill="black"/>
+  <text x="620" y="270" text-anchor="middle" fill="white" font-size="24">Thank you for your payment</text>
 </svg>`;
 
     const parser = new DOMParser();
-    const svgHeaderDoc = parser.parseFromString(svgHeaderData, 'image/svg+xml');
-    const svgHeaderElement = 
-      svgHeaderDoc.documentElement as unknown as SVGSVGElement;
-    const svgFooterDoc = parser.parseFromString(svgFooterData, 'image/svg+xml');
-    const svgFooterElement =
-      svgFooterDoc.documentElement as unknown as SVGSVGElement;
+    const svgCombinedDoc = parser.parseFromString(svgCombinedData, 'image/svg+xml');
+    const svgCombinedElement = svgCombinedDoc.documentElement as unknown as SVGSVGElement;
 
     try {
       const doc = new jsPDF('p', 'mm', 'a4');
       doc.setFontSize(40);
-      
-      // Render header SVG at the top
+      // Render combined SVG at the top
       (doc as any)
-        .svg(svgHeaderElement, {
+        .svg(svgCombinedElement, {
           x: 0,
-          y: -29,
+          y: 0,
           width: 210,
+          height: 297,
         })
         .then(() => {
+          // Overlay the text in the middle area
           doc.setFontSize(10);
           doc.text(
             'Your payment has been successful. This payment may take some time to update in your account.',
             20,
-            50,
+            80,
           );
-          doc.text('Child Support account.', 20, 56);
+          doc.text('Child Support account.', 20, 86);
           doc.setLineWidth(0.1);
-          doc.line(20, 66, 190, 66);
+          doc.line(20, 96, 190, 96);
 
-          let yPosition = 70;
-          yPosition += 10;
+          let yPosition = 110;
           doc.text(`Payment Amount: $${this.paymentAmount}`, 20, yPosition);
           yPosition += 8;
           doc.text(`Card surcharge: $${this.surcharge}`, 20, yPosition);
@@ -61,17 +53,8 @@ generateAndOpenReceipt() {
           yPosition += 8;
           yPosition += 10;
           doc.setLineWidth(0.1);
-          doc.line(20, 115, 190, 115);
+          doc.line(20, 155, 190, 155);
 
-          // Render footer SVG at the bottom (chain this .then)
-          return (doc as any)
-            .svg(svgFooterElement, {
-              x: 0,
-              y: 250, // move up a bit from the bottom for visibility
-              width: 210,
-            });
-        })
-        .then(() => {
           doc.setFontSize(16);
           const pdfBlob = doc.output('blob');
 
