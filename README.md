@@ -1,4 +1,4 @@
-rr
+ww
 ```
 generateAndOpenReceipt() {
     if (!this.receiptId) {
@@ -13,8 +13,8 @@ generateAndOpenReceipt() {
 </svg>`;
 
     // SVG footer
-    const svgFooterData = `<svg width="1240" height="68" viewBox="0 0 1240 68" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="1240" height="68" fill="#333333"/>
+    const svgFooterData = `<svg width="1240" height="165" viewBox="0 0 1240 165" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="1240" height="165" fill="#333333"/>
 <path d="M1107.3 20.0001L1105.71 27.5201H1105.61C1105.45 27.0632 1105.18 26.6549 1104.82 26.6549 1104.82 26.3357C1104.47 26.0486 1104.11 25.7842 1103.73 25.55"/>
 </svg>`;
 
@@ -65,8 +65,8 @@ generateAndOpenReceipt() {
 
           // Render footer SVG at the bottom
           return (doc as any).svg(svgFooterElement, {
-            x: 0,
-            y: 250,
+            x: 18,
+            y: 158,
             width: 210,
           });
         })
