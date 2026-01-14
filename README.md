@@ -1,4 +1,4 @@
-cd 
+cd
 
 ```
 generateAndOpenReceipt() {
@@ -63,39 +63,39 @@ generateAndOpenReceipt() {
           doc.setLineWidth(0.1);
           doc.line(20, 115, 190, 115);
 
-          // Render footer SVG at the bottom
-          (doc as any)
+          // Render footer SVG at the bottom (chain this .then)
+          return (doc as any)
             .svg(svgFooterElement, {
               x: 0,
-              y: 270, // a4 height is 297mm, so 270 leaves margin
+              y: 250, // move up a bit from the bottom for visibility
               width: 210,
-            })
-            .then(() => {
-              doc.setFontSize(16);
-              const pdfBlob = doc.output('blob');
-
-              const url = window.URL.createObjectURL(pdfBlob);
-
-              const newWindow = window.open(url, '_blank');
-
-              if (
-                !newWindow ||
-                newWindow.closed ||
-                typeof newWindow.closed === 'undefined'
-              ) {
-                console.warn(
-                  'Popup blocked by browser. Falling back to direct download.'
-                );
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `Receipt_${this.receiptId}.pdf`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              }
-
-              setTimeout(() => window.URL.revokeObjectURL(url), 100);
             });
+        })
+        .then(() => {
+          doc.setFontSize(16);
+          const pdfBlob = doc.output('blob');
+
+          const url = window.URL.createObjectURL(pdfBlob);
+
+          const newWindow = window.open(url, '_blank');
+
+          if (
+            !newWindow ||
+            newWindow.closed ||
+            typeof newWindow.closed === 'undefined'
+          ) {
+            console.warn(
+              'Popup blocked by browser. Falling back to direct download.'
+            );
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Receipt_${this.receiptId}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
+
+          setTimeout(() => window.URL.revokeObjectURL(url), 100);
         });
     } catch (e) {
       console.error('Error generating PDF', e);
