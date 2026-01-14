@@ -1,5 +1,4 @@
-der
-
+rr
 ```
 generateAndOpenReceipt() {
     if (!this.receiptId) {
@@ -65,12 +64,13 @@ generateAndOpenReceipt() {
           doc.line(20, 115, 190, 115);
 
           // Render footer SVG at the bottom
-          (doc as any).svg(svgFooterElement, {
+          return (doc as any).svg(svgFooterElement, {
             x: 0,
-            y: 267,
+            y: 250,
             width: 210,
           });
-
+        })
+        .then(() => {
           doc.setFontSize(16);
           const pdfBlob = doc.output('blob');
 
@@ -99,4 +99,5 @@ generateAndOpenReceipt() {
     } catch (e) {
       console.error('Error generating PDF', e);
     }
-  }```
+  }
+```
