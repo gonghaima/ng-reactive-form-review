@@ -1,31 +1,74 @@
-cd 
+cd
+
 ```
-import { Model } from 'mongoose';
+import jsPDF from 'jspdf';
 
-// In your service or data access layer:
-async function updateCardStatusesOrdered(cardModel: Model<any>): Promise<any> {
-  const operations = [
-    // 1. First operation: Update ALL records with csrn:"875" to card_status: "saved"
-    {
-      updateMany: {
-        filter: { csrn: '875' },
-        update: { $set: { card_status: 'saved' } },
-      },
-    },
+// ...existing code...
 
-    // 2. Second operation: Update the specific record to card_status: "preferred"
-    {
-      updateOne: {
-        filter: { csrn: '875', token: 'tyui' },
-        update: { $set: { card_status: 'preferred' } },
-      },
-    },
-  ];
+function generateAndOpenReceiptWithHeaderFooter(paymentAmount: string, surcharge: string, receiptId: string, submittedTime: string) {
+  // SVG header
+  const svgHeaderData = `<svg width="1240" height="68" viewBox="0 0 1240 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1240" height="68" fill="black"/>
+    <!-- Add your header SVG paths here -->
+  </svg>`;
 
-  // Execute the bulk write operation with { ordered: true }
-  // This guarantees the operations run sequentially (1 then 2).
-  const result = await cardModel.bulkWrite(operations, { ordered: true });
-  
-  return result;
+  // SVG footer
+  const svgFooterData = `<svg width="1240" height="68" viewBox="0 0 1240 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1240" height="68" fill="black"/>
+    <!-- Add your footer SVG paths here -->
+  </svg>`;
+
+  const parser = new DOMParser();
+  const svgHeaderDoc = parser.parseFromString(svgHeaderData, 'image/svg+xml');
+  const svgHeaderElement = svgHeaderDoc.documentElement as unknown as SVGSVGElement;
+
+  const svgFooterDoc = parser.parseFromString(svgFooterData, 'image/svg+xml');
+  const svgFooterElement = svgFooterDoc.documentElement as unknown as SVGSVGElement;
+
+  try {
+    const doc = new jsPDF('p', 'mm', 'a4');
+    doc.setFontSize(40);
+    // Render header SVG at the top
+    (doc as any).svg(svgHeaderElement, {
+      x: 0,
+      y: -29,
+      width: 210,
+    }).then(() => {
+      doc.setFontSize(10);
+      doc.text(
+        'Your payment has been successful. This payment may take some time to update in your account.',
+        20,
+        50
+      );
+      doc.text('Child Support account.', 20, 56);
+      doc.setLineWidth(0.1);
+      doc.line(20, 66, 190, 66);
+
+      let yPosition = 70;
+      yPosition += 10;
+      doc.text(`Payment Amount: $${paymentAmount}`, 20, yPosition);
+      yPosition += 8;
+      doc.text(`Card surcharge: $${surcharge}`, 20, yPosition);
+      yPosition += 8;
+      doc.text(`Receipt ID: ${receiptId}`, 20, yPosition);
+      yPosition += 8;
+      doc.text(`Submitted: ${submittedTime}`, 20, yPosition);
+      yPosition += 8;
+      yPosition += 10;
+
+      // Render footer SVG at the bottom (A4 height is 297mm, so y: 260 is near the bottom)
+      (doc as any).svg(svgFooterElement, {
+        x: 0,
+        y: 260,
+        width: 210,
+      }).then(() => {
+        doc.output('dataurlnewwindow');
+      });
+    });
+  } catch (e) {
+    console.error('Error generating PDF', e);
+  }
 }
+
+// ...existing code...
 ```
