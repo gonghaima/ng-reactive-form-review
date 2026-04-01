@@ -1,8 +1,6 @@
 sample 
 
 
-Hi , my compoany (SOLVE IT SERVICES PTY LTD), has been a registered ABN company for 8 years contracted for Woolworth / Optpus / Engergy Australia / NSW Transport / Service Australia, is there a way I can get registered via buyict?
-
 
 ```
 import { Injectable } from '@angular/core';
