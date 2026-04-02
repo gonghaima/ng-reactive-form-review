@@ -1,56 +1,28 @@
-sample 
-
-
-
-```
-import { Injectable } from '@angular/core';
-import {
-  HttpEvent,
-  HttpInterceptor,
-  HttpHandler,
-  HttpRequest,
-  HttpErrorResponse
-} from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
-import { catchError } from 'rxjs/operators';
-import { Router } from '@angular/router';
-
-@Injectable()
-export class ErrorRedirectInterceptor implements HttpInterceptor {
-
-  constructor(private router: Router) {}
-
-  intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-    return next.handle(req).pipe(
-      catchError((error: HttpErrorResponse) => {
-
-        if (error.status === 400) {
-          this.router.navigate(['/error']);
-        }
-
-        return throwError(() => error);
-      })
-    );
-  }
-}
-
-```
-
-register
-
-```
-import { HTTP_INTERCEPTORS } from '@angular/common/http';
-import { ErrorRedirectInterceptor } from './interceptors/error-redirect.interceptor';
-
-@NgModule({
-  providers: [
-    {
-      provide: HTTP_INTERCEPTORS,
-      useClass: ErrorRedirectInterceptor,
-      multi: true
-    }
-  ]
-})
-export class AppModule {}
-
-```
+What Are E-Bikes and Why Can They Be a Safety Concern for Young People?
+Introduction
+E-bikes, or electric bicycles, have rapidly become one of the most popular forms of transport across Australia, particularly among young people. While they offer real benefits such as convenience, independence, and environmental sustainability, the dramatic rise in e-bike use has brought with it growing and serious safety concerns — especially for younger riders. This report will explain what e-bikes are, how they work, why young people are drawn to them, and why they pose significant safety risks in New South Wales and beyond.
+What Are E-Bikes and How Do They Work?
+An e-bike is a bicycle fitted with an electric motor, a battery, and a controller system that assists the rider’s pedalling. The motor is powered by a rechargeable lithium-ion battery, typically mounted on the frame or rear rack. Most legal e-bikes in NSW are designed as “pedal-assist” models, meaning the motor only activates when the rider is pedalling, cutting out once the bike reaches a set speed.
+In NSW, road-legal e-bikes must have a maximum power output of 250 watts, and the motor assistance must cut out at 25 km/h. E-bikes are heavier than regular push bikes due to the motor and battery, which makes them faster and harder to control, especially for inexperienced riders. Illegal or modified e-bikes — sometimes disguised as regular e-bikes — can exceed these limits significantly, reaching speeds far beyond what is safe on shared paths or roads.
+Benefits of E-Bike Use
+E-bikes offer several genuine advantages. For young people, they provide a fast, affordable, and independent way to travel to school, sporting activities, and social events without relying on parents or public transport. They also reduce car usage, contributing to lower carbon emissions and less traffic congestion. For communities, widespread e-bike adoption supports a healthier and more physically active lifestyle, as riders still engage in physical activity through pedalling.
+Safety Risks and Concerns
+Despite these benefits, e-bikes carry serious safety risks, particularly for young and inexperienced riders. The combination of increased speed, greater weight, and limited road experience creates a dangerous situation.
+Accident and injury data paints a clear picture of the growing problem. NSW recorded 226 e-bike-related injuries in 2024, followed by 233 in just the first seven months of 2025.  Among children specifically, Sydney Children’s Hospital Network reported that almost 100 children were hurt while riding e-bikes in 2025, compared with 60 the previous year. 
+Common injury risks include collisions with vehicles or pedestrians, falls caused by loss of control at high speed, and crashes resulting from riders not wearing helmets or wearing them incorrectly. Injuries are often severe, including loss of consciousness, suspected spinal damage, and critical head trauma, particularly when riders fail to wear a helmet. 
+Helmet non-compliance is a significant issue among teenagers. The teenage category (11–17 years old) was observed as the least likely age group to wear a helmet when riding a bicycle or e-bike. 
+Illegal and modified e-bikes add another layer of danger. During a Melbourne police operation, more than half of intercepted e-bikes were illegal.  These bikes often travel well above the legal speed limit, putting both the rider and others at serious risk.
+Battery fires are also a growing hazard. The number of fires in NSW linked to e-micromobility devices jumped from just 23 in 2022 to 93 in 2024, with a total of 193 incidents recorded by early 2025.  These fires are caused by faulty or non-compliant lithium-ion batteries and can be extremely dangerous.
+E-Bike Usage Trends in NSW
+There are an estimated 760,000 e-bikes in NSW, and the rapid growth has brought new opportunities for people to get around and keep active, but it has also highlighted the need for clearer, more consistent rules to support their safe use.  Young people and low-income workers have been among those driving adoption, as e-bikes offer a cost-effective alternative to cars and public transport.
+The sharp increase in use has also been linked to social trends, including large group “rideouts” organised through social media, which have raised concerns among police and road safety authorities.
+Laws and Rules Around E-Bikes in NSW
+Under current NSW road rules, e-bike riders must obey the same road rules as regular cyclists. They must wear an approved helmet, ride on the left side of the road, follow traffic signals, and use lights at night. Unlike cars and motorcycles, e-bikes currently do not require registration or a licence to ride.
+The NSW Government is now introducing a minimum age to ride an e-bike as part of a broader package of safety reforms.  An expert review led by Transport for NSW will determine a legal minimum riding age — likely somewhere between 12 and 16 — while also assessing whether young riders should be permitted to carry passengers. 
+Additionally, NSW will adopt the European safety standard for e-bikes, requiring a maximum power output of 250 watts, with power assistance cutting out at 25 km/h.  Police have also been given expanded powers to seize and crush illegal high-powered bikes.
+Reasons for the Increase in E-Bike Use Among Young People
+Several factors explain why e-bikes have become so popular with young people. They offer a sense of freedom and independence at an age when many young people cannot yet drive. They are seen as a social activity, with group rides being a popular pastime. Social media has played a major role in normalising and glamorising e-bike use. They are also relatively affordable compared to cars and do not require a licence, making them accessible to a wide range of young people.
+Personal Skills and Strategies for Safe E-Bike Use
+Young people can reduce their risk of injury by following a number of key strategies. Always wearing a properly fitted, approved helmet is essential, as head injuries are among the most serious consequences of crashes. Riders should obey all road rules, including speed limits and traffic signals, and should only ride bikes that meet legal safety standards. Avoiding carrying passengers, not using mobile phones while riding, and being especially careful at intersections and driveways can all significantly reduce the chance of an accident. Riders should also ensure their battery and charger are certified and compliant to avoid the risk of fire.
+Conclusion
+E-bikes are an innovative and increasingly popular form of transport that offer real benefits for young people, including independence, convenience, and environmental advantages. However, the rapid growth in their use has created serious safety challenges in NSW, with rising injury rates, fatalities, illegal modifications, and battery fires all demanding urgent attention. Understanding the risks, following the law, and making responsible decisions are essential for any young person choosing to ride an e-bike. As the NSW Government introduces new laws and standards, it is important that young riders stay informed and ride safely.
